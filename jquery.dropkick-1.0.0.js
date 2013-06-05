@@ -10,14 +10,7 @@
  */
 (function ($, window, document) {
 
-  var msVersion = navigator.userAgent.match(/MSIE ([0-9]{1,}[\.0-9]{0,})/),
-      msie = !!msVersion,
-      ie6 = msie && parseFloat(msVersion[1]) < 7;
-
-  // Help prevent flashes of unstyled content
-  if (!ie6) {
-    document.documentElement.className = document.documentElement.className + ' dk_fouc';
-  }
+  document.documentElement.className = document.documentElement.className + ' dk_fouc';
   
   var
     // Public methods exposed to $.fn.dropkick()
@@ -37,9 +30,10 @@
 
     // HTML template for the dropdowns
     dropdownTemplate = [
-      '<div class="dk_container" id="dk_container_{{ id }}" tabindex="{{ tabindex }}">',
+      '<div class="dk_container {{ classname }}" id="dk_container_{{ id }}" tabindex="{{ tabindex }}">',
         '<a class="dk_toggle">',
           '<span class="dk_label">{{ label }}</span>',
+          '<span class="select-icon"></span>',
         '</a>',
         '<div class="dk_options">',
           '<ul class="dk_options_inner">',
@@ -53,7 +47,7 @@
 
     // Some nice default values
     defaults = {
-      startSpeed : 1000,  // I recommend a high value here, I feel it makes the changes less noticeable to the user
+      startSpeed : 100,  // I recommend a high value here, I feel it makes the changes less noticeable to the user
       theme  : false,
       change : false
     },
@@ -89,6 +83,9 @@
         // Check if we have a tabindex set or not
         tabindex  = $select.attr('tabindex') ? $select.attr('tabindex') : '',
 
+        // Check if we have a class name set or not
+        classname  = $select.attr('class') ? $select.attr('class') : '',
+
         // The completed dk_container element
         $dk = false,
 
@@ -101,6 +98,7 @@
       } else {
         data.settings  = settings;
         data.tabindex  = tabindex;
+        data.classname = classname;
         data.id        = id;
         data.$original = $original;
         data.$select   = $select;
@@ -114,14 +112,15 @@
 
       // Make the dropdown fixed width if desired
       $dk.find('.dk_toggle').css({
-        'width' : width + 'px'
+        // Disable inline width since it should fill all available parrent space
+        // 'width' : width + 'px'
       });
 
       // Hide the <select> list and place our new one in front of it
       $select.before($dk);
 
       // Update the reference to $dk
-      $dk = $('#dk_container_' + id).fadeIn(settings.startSpeed);
+      $dk = $('#dk_container_' + id).addClass('dk_shown');
 
       // Save the current theme
       theme = settings.theme ? settings.theme : 'default';
@@ -174,7 +173,7 @@
         $dk       = listData.$dk,
         $current  = $dk.find('li').first()
       ;
-
+      
       $dk.find('.dk_label').text(listData.label);
       $dk.find('.dk_options_inner').animate({ scrollTop: 0 }, 0);
 
@@ -183,14 +182,28 @@
     }
   };
 
+  methods.reload = function (elem) {
+    for (var i = 0, l = lists.length; i < l; i++) {
+      //if (elem.attr('id') && lists[i].attr('id') == elem.attr('id'))
+      if (elem.selector === lists[i].selector && elem.context === lists[i].context)
+      {  
+         var
+          $dk      = lists[i].data('dropkick').$dk,
+          $current = $dk.find('li>a[data-dk-dropdown-value=' + elem.val()+']').first().parent()
+         ;
+        _setCurrent($current, $dk);
+        _updateFields($current, $dk, true);
+        break;
+      }
+    }
+  };
+
   // Expose the plugin
   $.fn.dropkick = function (method) {
-    if (!ie6) {
-      if (methods[method]) {
-        return methods[method].apply(this, Array.prototype.slice.call(arguments, 1));
-      } else if (typeof method === 'object' || ! method) {
-        return methods.init.apply(this, arguments);
-      }
+    if (methods[method]) {
+      return methods[method].apply(this, Array.prototype.slice.call(arguments, 1));
+    } else if (typeof method === 'object' || ! method) {
+      return methods.init.apply(this, arguments);
     }
   };
 
@@ -313,6 +326,7 @@
     template = template.replace('{{ id }}', view.id);
     template = template.replace('{{ label }}', view.label);
     template = template.replace('{{ tabindex }}', view.tabindex);
+    template = template.replace('{{ classname }}', view.classname);
 
     if (view.options && view.options.length) {
       for (var i = 0, l = view.options.length; i < l; i++) {
@@ -358,7 +372,7 @@
     });
 
     // Handle click events on individual dropdown options
-    $(document).on((msie ? 'mousedown' : 'click'), '.dk_options a', function (e) {
+    $(document).on('click', '.dk_options a', function (e) {
       var
         $option = $(this),
         $dk     = $option.parents('.dk_container').first(),
